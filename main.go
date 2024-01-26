@@ -3,13 +3,21 @@ package main
 import (
 	"net/http"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
 
 func main() {
 	router := gin.Default()
+
+	config := cors.DefaultConfig()
+	config.AllowOrigins = []string{"*"}
+	router.Use(cors.New(config))
+
 	router.GET("/json/products", getProducts)
 	router.POST("/json/products", createProducts)
+	router.PATCH("/json/products", updateProducts)
+	router.DELETE("/json/products/:id", deleteProduct)
 
 	router.Run("localhost:8080")
 }
@@ -31,7 +39,7 @@ var products = []product{
 }
 
 func getProducts(c *gin.Context) {
-	c.IndentedJSON(http.StatusOK, products)
+	c.JSON(http.StatusOK, products)
 }
 
 func createProducts(c *gin.Context) {
@@ -42,5 +50,39 @@ func createProducts(c *gin.Context) {
 	}
 
 	products = append(products, newProduct)
-	c.IndentedJSON(http.StatusCreated, newProduct)
+	c.JSON(http.StatusCreated, newProduct)
+}
+
+func updateProducts(c *gin.Context) {
+	var updatedProduct product
+
+	if err := c.BindJSON(&updatedProduct); err != nil {
+		return
+	}
+
+	found := false
+	for i, p := range products {
+		if p.ID == updatedProduct.ID {
+			products[i] = updatedProduct
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "Product not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, updatedProduct)
+}
+
+func deleteProduct(c *gin.Context) {
+	id := c.Param("id")
+	for i, p := range products {
+		if p.ID == id {
+			products = append(products[:i], products[i+1:]...)
+			break
+		}
+	}
 }
